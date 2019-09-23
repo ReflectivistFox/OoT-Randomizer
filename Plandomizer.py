@@ -509,7 +509,7 @@ class WorldDistribution(object):
 
     def fill(self, window, worlds, location_pools, item_pools):
         world = worlds[self.id]
-        for (location_name, record) in pattern_dict_items(self.locations):
+        for (location_name, record) in pattern_dict_items(self.locations, location_pools, world):
             if record.item is None:
                 continue
 
@@ -855,12 +855,27 @@ def pattern_matcher(pattern):
             return lambda s: invert != (s == pattern)
 
 
-def pattern_dict_items(pattern_dict):
+def pattern_dict_items(pattern_dict, location_pools=None, world=None):
     for (key, value) in pattern_dict.items():
         if is_pattern(key):
             pattern = lambda loc: pattern_matcher(key)(loc.name)
-            for location in LocationIterator(pattern):
-                yield(location.name, value)
+            if location_pools is not None:
+                candidates = list(LocationIterator(pattern))
+                random.shuffle(candidates)
+                location2 = None
+                for location in candidates:
+                    location_matcher = lambda loc: loc.world.id == world.id and loc.name == location.name
+                    location2 = pull_first_element(location_pools, location_matcher, remove=False)
+                    if location2 is None:
+                        continue
+                    else:
+                        yield(location.name, value)
+                        break
+                if location2 is None:
+                    yield(candidates[0].name, value)
+            else:
+                for location in LocationIterator(pattern):
+                    yield(location.name, value)
         else:
             yield (key, value)
 
